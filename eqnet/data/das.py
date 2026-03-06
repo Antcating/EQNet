@@ -87,7 +87,9 @@ def generate_label(
 
     # target[0:1, :, :] = np.maximum(0, 1 - np.sum(target[1:, :, :], axis=0, keepdims=True))
 
-    target[0:1, :, space_mask] = np.maximum(0, 1 - np.sum(target[1:, :, space_mask], axis=0, keepdims=True))
+    target[0:1, :, space_mask] = np.maximum(
+        0, 1 - np.sum(target[1:, :, space_mask], axis=0, keepdims=True)
+    )
     target[:, :, ~space_mask] = 0
 
     # plt.figure(figsize=(12, 12))
@@ -204,7 +206,9 @@ def cut_data(
         max_sum = 0
         tmp_sum = 0
         tries = 0
-        while tmp_sum < label_width / 2 * nx * 0.1:  ## assuming 10% of traces have picks
+        while (
+            tmp_sum < label_width / 2 * nx * 0.1
+        ):  ## assuming 10% of traces have picks
             w0 = np.random.randint(0, max(1, w - nt))
             h0 = np.random.randint(0, max(1, h - nx))
             tmp_sum = torch.sum(targets[1:, w0 : w0 + nt, h0 : h0 + nx])  # nch, nt, nx
@@ -226,7 +230,9 @@ def cut_data(
     tmp = data[:, w0 : w0 + nt, h0 : h0 + nx]
     data_[:, w1 : w1 + tmp.shape[-2], h1 : h1 + tmp.shape[-1]] = tmp[:, :, :]
     if targets is not None:
-        targets_ = torch.zeros((targets.shape[0], nt, nx), dtype=targets.dtype, device=targets.device)
+        targets_ = torch.zeros(
+            (targets.shape[0], nt, nx), dtype=targets.dtype, device=targets.device
+        )
         tmp = targets[..., w0 : w0 + nt, h0 : h0 + nx]
         targets_[:, w1 : w1 + tmp.shape[-2], h1 : h1 + tmp.shape[-1]] = tmp[:, :, :]
         mask = torch.sum(targets_[1:, :, :], axis=(0, 1))  ## no P/S channels
@@ -266,14 +272,18 @@ def pad_noise(noise: torch.Tensor, nt: int = 1024 * 3, nx: int = 1024 * 5):
     return noise
 
 
-def calc_snr(data: torch.Tensor, picks: list, noise_window: int = 200, signal_window: int = 200):
+def calc_snr(
+    data: torch.Tensor, picks: list, noise_window: int = 200, signal_window: int = 200
+):
     SNR = []
     S = []
     N = []
     for trace, phase_time in picks:
         trace = int(trace)
         phase_time = int(phase_time)
-        noise = torch.std(data[:, max(0, phase_time - noise_window) : phase_time, trace])
+        noise = torch.std(
+            data[:, max(0, phase_time - noise_window) : phase_time, trace]
+        )
         signal = torch.std(data[:, phase_time : phase_time + signal_window, trace])
         S.append(signal)
         N.append(noise)
@@ -307,7 +317,9 @@ def masking(data, target, nt=256, nx=256):
 
     max_tries = 10
     tries = 0
-    while (torch.sum(target_[1:, nt0_ : nt0_ + nt_, :]).item() > 100.0) and (tries < max_tries):
+    while (torch.sum(target_[1:, nt0_ : nt0_ + nt_, :]).item() > 100.0) and (
+        tries < max_tries
+    ):
         tries += 1
         nt0_ = random.randint(0, nt0 - nt_)
 
@@ -369,9 +381,13 @@ def resample_time(data, picks, noise=None, factor=1):
     nch, nt, nx = data.shape
     scale_factor = random.uniform(min(1, factor), max(1, factor))
     with torch.no_grad():
-        data_ = F.interpolate(data.unsqueeze(0), scale_factor=(scale_factor, 1), mode="bilinear").squeeze(0)
+        data_ = F.interpolate(
+            data.unsqueeze(0), scale_factor=(scale_factor, 1), mode="bilinear"
+        ).squeeze(0)
         if noise is not None:
-            noise_ = F.interpolate(noise.unsqueeze(0), scale_factor=(scale_factor, 1), mode="bilinear").squeeze(0)
+            noise_ = F.interpolate(
+                noise.unsqueeze(0), scale_factor=(scale_factor, 1), mode="bilinear"
+            ).squeeze(0)
         else:
             noise_ = None
     picks_ = []
@@ -390,9 +406,10 @@ def filt_channels(picks):
     for event_index in picks["event_index"].unique():
         for phase_type in picks["phase_type"].unique():
             commmon_channel_index.append(
-                picks[(picks["event_index"] == event_index) & (picks["phase_type"] == phase_type)][
-                    "channel_index"
-                ].tolist()
+                picks[
+                    (picks["event_index"] == event_index)
+                    & (picks["phase_type"] == phase_type)
+                ]["channel_index"].tolist()
             )
     commmon_channel_index = set.intersection(*map(set, commmon_channel_index))
     picks = picks[picks["channel_index"].isin(commmon_channel_index)]
@@ -458,10 +475,14 @@ def roll_by_gather(data, dim, shifts: torch.LongTensor):
         raise ValueError("dim must be 0 or 1")
 
 
-def add_moveout(data, targets=None, vmin=2.0, vmax=6.0, dt=0.01, dx=0.01, shift_range=1000):
+def add_moveout(
+    data, targets=None, vmin=2.0, vmax=6.0, dt=0.01, dx=0.01, shift_range=1000
+):
     nch, h, w = data.shape
     iw = torch.randint(low=0, high=w, size=(1,))
-    shift = ((torch.arange(w) - iw).abs() * dx / (vmin + torch.rand(1) * (vmax - vmin)) / dt).int()
+    shift = (
+        (torch.arange(w) - iw).abs() * dx / (vmin + torch.rand(1) * (vmax - vmin)) / dt
+    ).int()
     # shift = ((torch.arange(w) - iw).abs() /w * shift_range * torch.rand((1,))).int()
     data = roll_by_gather(data, dim=0, shifts=shift)
     if targets is not None:
@@ -541,7 +562,9 @@ class DASIterableDataset(IterableDataset):
                 with open(data_list, "r") as f:
                     self.data_list = f.read().rstrip("\n").split("\n")
         else:
-            self.data_list = glob(os.path.join(self.data_path, f"{prefix}*{suffix}.{format}"))
+            self.data_list = glob(
+                os.path.join(self.data_path, f"{prefix}*{suffix}.{format}")
+            )
 
         if not training:
             self.data_list = self.data_list[rank::world_size]
@@ -572,7 +595,9 @@ class DASIterableDataset(IterableDataset):
                 with open(label_list, "r") as f:
                     self.label_list = f.read().rstrip("\n").split("\n")
             if training:
-                self.label_list = self.label_list[: len(self.label_list) // world_size * world_size]
+                self.label_list = self.label_list[
+                    : len(self.label_list) // world_size * world_size
+                ]
             self.label_list = self.label_list[rank::world_size]
         else:
             # if type(label_path) is list:
@@ -631,15 +656,23 @@ class DASIterableDataset(IterableDataset):
                                 attrs["dx_m"] = meta["Data"].attrs["dCh"]
                             else:
                                 nx, nt = meta["Acquisition/Raw[0]/RawData"].shape
-                                dx = meta["Acquisition"].attrs["SpatialSamplingInterval"]
+                                dx = meta["Acquisition"].attrs[
+                                    "SpatialSamplingInterval"
+                                ]
                                 fs = meta["Acquisition/Raw[0]"].attrs["OutputDataRate"]
                                 attrs["dx_m"] = dx
                                 attrs["dt_s"] = 1.0 / fs
+                        elif self.system == "huji":
+                            nx, nt = meta["data_down"].shape
+                            attrs["dt_s"] = 1 / meta.attrs["SPS_down"]
+                            attrs["dx_m"] = meta.attrs["DX_down"]
                         else:
                             nx, nt = meta["data"].shape
                             attrs = dict(meta["data"].attrs)
                 if self.resample_time and ("dt_s" in attrs):
-                    if (attrs["dt_s"] != 0.01) and (int(round(1.0 / attrs["dt_s"])) % 100 == 0):
+                    if (attrs["dt_s"] != 0.01) and (
+                        int(round(1.0 / attrs["dt_s"])) % 100 == 0
+                    ):
                         nt = int(nt / round(0.01 / attrs["dt_s"]))
 
             elif self.format == "segy":
@@ -650,7 +683,11 @@ class DASIterableDataset(IterableDataset):
             else:
                 raise ValueError("Unknown dataset")
 
-            return len(self.data_list) * ((nt - 1) // self.nt + 1) * ((nx - 1) // self.nx + 1)
+            return (
+                len(self.data_list)
+                * ((nt - 1) // self.nt + 1)
+                * ((nx - 1) // self.nx + 1)
+            )
 
     def __iter__(self):
         worker_info = torch.utils.data.get_worker_info()
@@ -684,7 +721,9 @@ class DASIterableDataset(IterableDataset):
 
                 ## load waveform data
                 data_file = "/".join(
-                    label_file.replace("labels", "data").replace(".csv", ".h5").split("/")[-3:]
+                    label_file.replace("labels", "data")
+                    .replace(".csv", ".h5")
+                    .split("/")[-3:]
                 )  # folder/data/event_id
 
                 try:
@@ -710,7 +749,9 @@ class DASIterableDataset(IterableDataset):
                             with h5py.File(f, "r") as fp:
                                 noise = fp["data"][:, :].T
                             ## The first 30s are noise in the training data
-                            noise = np.roll(noise, max(0, self.nt - 3000), axis=0)  # nt, nx
+                            noise = np.roll(
+                                noise, max(0, self.nt - 3000), axis=0
+                            )  # nt, nx
                             noise = noise[np.newaxis, : self.nt, :]  # nchn, nt, nx
                             noise = noise / np.std(noise)
                             noise = torch.from_numpy(noise.astype(np.float32))
@@ -738,7 +779,9 @@ class DASIterableDataset(IterableDataset):
                         data, picks, noise = resample_time(data, picks, noise, 0.5)
 
                 ## generate training labels
-                targets, phase_time_mask = generate_label(data, picks, return_time_mask=True)
+                targets, phase_time_mask = generate_label(
+                    data, picks, return_time_mask=True
+                )
                 targets = torch.from_numpy(targets)
                 phase_time_mask = torch.from_numpy(phase_time_mask)
 
@@ -746,7 +789,14 @@ class DASIterableDataset(IterableDataset):
                 status_stack_event = False
                 if self.stack_event and (snr > 10) and (np.random.rand() < 0.3):
                     data, targets, status_stack_event = stack_event(
-                        data, targets, data, targets, snr, snr, phase_time_mask, phase_time_mask
+                        data,
+                        targets,
+                        data,
+                        targets,
+                        snr,
+                        snr,
+                        phase_time_mask,
+                        phase_time_mask,
                     )
 
                 ## augmentation
@@ -770,7 +820,11 @@ class DASIterableDataset(IterableDataset):
                     #     data_, targets_ = add_moveout(data_, targets_)
 
                     ## augmentation
-                    if self.stack_noise and (not status_stack_event) and (np.random.rand() < 0.5):
+                    if (
+                        self.stack_noise
+                        and (not status_stack_event)
+                        and (np.random.rand() < 0.5)
+                    ):
                         noise_ = cut_noise(noise, self.nt, self.nx)
                         data_ = stack_noise(data_, noise_, snr)
 
@@ -792,7 +846,8 @@ class DASIterableDataset(IterableDataset):
                     yield {
                         "data": torch.nan_to_num(data_),
                         "phase_pick": targets_,
-                        "file_name": os.path.splitext(label_file.split("/")[-1])[0] + f"_{ii:02d}",
+                        "file_name": os.path.splitext(label_file.split("/")[-1])[0]
+                        + f"_{ii:02d}",
                         "height": data_.shape[-2],
                         "width": data_.shape[-1],
                     }
@@ -822,7 +877,9 @@ class DASIterableDataset(IterableDataset):
                         dataset = fp["data"]  # nt x nx
                         data = dataset[()]
                         if "begin_time" in dataset.attrs:
-                            sample["begin_time"] = datetime.fromisoformat(dataset.attrs["begin_time"].rstrip("Z"))
+                            sample["begin_time"] = datetime.fromisoformat(
+                                dataset.attrs["begin_time"].rstrip("Z")
+                            )
                         if "dt_s" in dataset.attrs:
                             sample["dt_s"] = dataset.attrs["dt_s"]
                         else:
@@ -837,7 +894,9 @@ class DASIterableDataset(IterableDataset):
                         # dataset = fp["Data"]
                         if "Data" in fp:  # converted format by Ettore Biondi
                             dataset = fp["Data"]
-                            sample["begin_time"] = datetime.fromisoformat(dataset.attrs["startTime"].rstrip("Z"))
+                            sample["begin_time"] = datetime.fromisoformat(
+                                dataset.attrs["startTime"].rstrip("Z")
+                            )
                             sample["dt_s"] = dataset.attrs["dt"]
                             sample["dx_m"] = dataset.attrs["dCh"]
                         else:
@@ -848,7 +907,32 @@ class DASIterableDataset(IterableDataset):
 
                             sample["dx_m"] = dx
                             sample["dt_s"] = 1.0 / fs
-                            sample["begin_time"] = datetime.fromisoformat(begin_time.rstrip("Z"))
+                            sample["begin_time"] = datetime.fromisoformat(
+                                begin_time.rstrip("Z")
+                            )
+
+                        nx, nt = dataset.shape
+                        sample["nx"] = nx
+                        sample["nt"] = nt
+
+                        ## check existing
+                        existing = self.check_existing(file, sample)
+                        if self.skip_existing and existing:
+                            print(f"Skip existing file {file}")
+                            continue
+
+                        data = dataset[()]  # (nx, nt)
+                        data = np.gradient(data, axis=-1, edge_order=2) / sample["dt_s"]
+
+            elif (self.format == "h5") and (self.system == "huji"):
+                with fsspec.open(file, "rb") as fs:
+                    with h5py.File(fs, "r") as fp:
+                        dataset = fp["data_down"]
+                        sample["begin_time"] = datetime.fromtimestamp(
+                            float(file.split("/")[-1].rstrip(".h5"))
+                        )
+                        sample["dt_s"] = 1 / fp.attrs["SPS_down"]
+                        sample["dx_m"] = fp.attrs["DX_down"]
 
                         nx, nt = dataset.shape
                         sample["nx"] = nx
@@ -869,7 +953,9 @@ class DASIterableDataset(IterableDataset):
                     data = read_PASSCAL_segy(fs)
 
                 ## FIXME: hard code for Ridgecrest DAS
-                sample["begin_time"] = datetime.strptime(file.split("/")[-1].rstrip(".segy"), "%Y%m%d%H")
+                sample["begin_time"] = datetime.strptime(
+                    file.split("/")[-1].rstrip(".segy"), "%Y%m%d%H"
+                )
                 sample["dt_s"] = 1.0 / 250.0
                 sample["dx_m"] = 8.0
 
@@ -886,8 +972,12 @@ class DASIterableDataset(IterableDataset):
                 raise (f"Unsupported format: {self.format}")
 
             if self.resample_time:
-                if (sample["dt_s"] != 0.01) and (int(round(1.0 / sample["dt_s"])) % 100 == 0):
-                    print(f"Resample {file} from time interval {sample['dt_s']} to 0.01")
+                if (sample["dt_s"] != 0.01) and (
+                    int(round(1.0 / sample["dt_s"])) % 100 == 0
+                ):
+                    print(
+                        f"Resample {file} from time interval {sample['dt_s']} to 0.01"
+                    )
                     data = data[..., :: int(0.01 / sample["dt_s"])]
                     sample["dt_s"] = 0.01
 
@@ -916,7 +1006,9 @@ class DASIterableDataset(IterableDataset):
                     "nx": nx,
                     # "file_name": os.path.splitext(file.split("/")[-1])[0],
                     "file_name": file,
-                    "begin_time": sample["begin_time"].isoformat(timespec="milliseconds"),
+                    "begin_time": sample["begin_time"].isoformat(
+                        timespec="milliseconds"
+                    ),
                     "begin_time_index": 0,
                     "begin_channel_index": 0,
                     "dt_s": sample["dt_s"] if "dt_s" in sample else self.dt,
@@ -929,14 +1021,17 @@ class DASIterableDataset(IterableDataset):
                         if self.skip_existing:
                             if os.path.exists(
                                 os.path.join(
-                                    self.pick_path, os.path.splitext(file.split("/")[-1])[0] + f"_{i:04d}_{j:04d}.csv"
+                                    self.pick_path,
+                                    os.path.splitext(file.split("/")[-1])[0]
+                                    + f"_{i:04d}_{j:04d}.csv",
                                 )
                             ):
                                 print(
                                     f"Skip existing file",
                                     os.path.join(
                                         self.pick_path,
-                                        os.path.splitext(file.split("/")[-1])[0] + f"_{i:04d}_{j:04d}.csv",
+                                        os.path.splitext(file.split("/")[-1])[0]
+                                        + f"_{i:04d}_{j:04d}.csv",
                                     ),
                                 )
                                 continue
@@ -948,10 +1043,12 @@ class DASIterableDataset(IterableDataset):
                             "nt": nt_,
                             "nx": nx_,
                             # "file_name": os.path.splitext(file.split("/")[-1])[0] + f"_{i:04d}_{j:04d}",
-                            "file_name": os.path.splitext(file)[0] + f"_{i:04d}_{j:04d}",
-                            "begin_time": (sample["begin_time"] + timedelta(seconds=i * sample["dt_s"])).isoformat(
-                                timespec="milliseconds"
-                            ),
+                            "file_name": os.path.splitext(file)[0]
+                            + f"_{i:04d}_{j:04d}",
+                            "begin_time": (
+                                sample["begin_time"]
+                                + timedelta(seconds=i * sample["dt_s"])
+                            ).isoformat(timespec="milliseconds"),
                             "begin_time_index": i,
                             "begin_channel_index": j,
                             "dt_s": sample["dt_s"] if "dt_s" in sample else self.dt,
@@ -964,14 +1061,20 @@ class DASIterableDataset(IterableDataset):
         if not self.cut_patch:
             if not os.path.exists(
                 os.path.join(
-                    os.path.join(self.pick_path, parent_dir, os.path.splitext(file.split("/")[-1])[0] + ".csv")
+                    os.path.join(
+                        self.pick_path,
+                        parent_dir,
+                        os.path.splitext(file.split("/")[-1])[0] + ".csv",
+                    )
                 )
             ):
                 existing = False
         else:
             nx, nt = sample["nx"], sample["nt"]
             if self.resample_time:
-                if (sample["dt_s"] != 0.01) and (int(round(1.0 / sample["dt_s"])) % 100 == 0):
+                if (sample["dt_s"] != 0.01) and (
+                    int(round(1.0 / sample["dt_s"])) % 100 == 0
+                ):
                     nt = int(nt / round(0.01 / sample["dt_s"]))
             for i in list(range(0, nt, self.nt)):
                 for j in list(range(0, nx, self.nx)):
@@ -979,7 +1082,8 @@ class DASIterableDataset(IterableDataset):
                         os.path.join(
                             self.pick_path,
                             parent_dir,
-                            os.path.splitext(file.split("/")[-1])[0] + f"_{i:04d}_{j:04d}.csv",
+                            os.path.splitext(file.split("/")[-1])[0]
+                            + f"_{i:04d}_{j:04d}.csv",
                         )
                     ):
                         existing = False
@@ -1042,7 +1146,8 @@ class AutoEncoderIterableDataset(DASIterableDataset):
                     yield {
                         "data": data_,
                         "targets": data_,
-                        "file_name": os.path.splitext(file.split("/")[-1])[0] + f"_{ii:02d}",
+                        "file_name": os.path.splitext(file.split("/")[-1])[0]
+                        + f"_{ii:02d}",
                         "height": data_.shape[-2],
                         "width": data_.shape[-1],
                     }
@@ -1064,10 +1169,11 @@ class AutoEncoderIterableDataset(DASIterableDataset):
                             xn = j + self.nx
                         yield {
                             "data": data[:, i:tn, j:xn],
-                            "file_name": os.path.splitext(file.split("/")[-1])[0] + f"_{i:04d}_{j:04d}",
-                            "begin_time": (sample["begin_time"] + timedelta(i * sample["dt_s"])).isoformat(
-                                timespec="milliseconds"
-                            ),
+                            "file_name": os.path.splitext(file.split("/")[-1])[0]
+                            + f"_{i:04d}_{j:04d}",
+                            "begin_time": (
+                                sample["begin_time"] + timedelta(i * sample["dt_s"])
+                            ).isoformat(timespec="milliseconds"),
                             "begin_time_index": i,
                             "begin_channel_index": j,
                             "dt_s": sample["dt_s"] if "dt_s" in sample else self.dt,
@@ -1102,15 +1208,25 @@ class DASDataset(Dataset):
         self.prefix = prefix
         self.suffix = suffix
         self.phases = phases
-        self.data_list = sorted(glob(os.path.join(data_path, f"{prefix}*{suffix}.{format}")))
+        self.data_list = sorted(
+            glob(os.path.join(data_path, f"{prefix}*{suffix}.{format}"))
+        )
         if label_path is not None:
             if type(label_path) is list:
                 self.label_list = []
                 for i in range(len(label_path)):
-                    self.label_list += list(sorted(glob(os.path.join(label_path[i], f"{prefix}*{suffix}.csv"))))
+                    self.label_list += list(
+                        sorted(
+                            glob(os.path.join(label_path[i], f"{prefix}*{suffix}.csv"))
+                        )
+                    )
             else:
-                self.label_list = sorted(glob(os.path.join(label_path, f"{prefix}*{suffix}.csv")))
-        print(os.path.join(data_path, f"{prefix}*{suffix}.{format}"), len(self.data_list))
+                self.label_list = sorted(
+                    glob(os.path.join(label_path, f"{prefix}*{suffix}.csv"))
+                )
+        print(
+            os.path.join(data_path, f"{prefix}*{suffix}.{format}"), len(self.data_list)
+        )
         if self.noise_path is not None:
             self.noise_list = glob(os.path.join(noise_path, f"*.{format}"))
         self.num_data = len(self.data_list)
@@ -1136,7 +1252,9 @@ class DASDataset(Dataset):
             picks = pd.read_csv(file)
             meta = {}
             for pick_type in self.phases:
-                meta[pick_type] = picks[picks["phase_type"] == pick_type][["channel_index", "phase_index"]].to_numpy()
+                meta[pick_type] = picks[picks["phase_type"] == pick_type][
+                    ["channel_index", "phase_index"]
+                ].to_numpy()
             # if (len(meta["p_picks"]) < 500) or (len(meta["s_picks"]) < 500):
             #     continue
             tmp = file.split("/")
@@ -1151,7 +1269,9 @@ class DASDataset(Dataset):
                 tries = 0
                 max_tries = 10
                 while tries < max_tries:
-                    tmp_file = self.label_list[np.random.randint(0, len(self.label_list))]
+                    tmp_file = self.label_list[
+                        np.random.randint(0, len(self.label_list))
+                    ]
                     tmp_picks = pd.read_csv(tmp_file)
                     if tmp_picks["phase_index"].min() < 3000:
                         tries += 1
@@ -1193,8 +1313,12 @@ class DASDataset(Dataset):
                     else:
                         sample["begin_time_index"] = begin_time_index
                         sample["begin_time"] = (
-                            datetime.fromisoformat(f["data"].attrs["begin_time"].rstrip("Z"))
-                            + timedelta(seconds=begin_time_index * f["data"].attrs["dt_s"])
+                            datetime.fromisoformat(
+                                f["data"].attrs["begin_time"].rstrip("Z")
+                            )
+                            + timedelta(
+                                seconds=begin_time_index * f["data"].attrs["dt_s"]
+                            )
                         ).isoformat(timespec="milliseconds")
                 if "dt_s" in f["data"].attrs:
                     sample["dt_s"] = f["data"].attrs["dt_s"]
@@ -1203,7 +1327,9 @@ class DASDataset(Dataset):
                 data = torch.from_numpy(data.astype(np.float32))
 
         elif self.format == "segy":
-            data = load_segy(os.path.join(self.data_path, self.data_list[idx]), nTrace=self.nTrace)
+            data = load_segy(
+                os.path.join(self.data_path, self.data_list[idx]), nTrace=self.nTrace
+            )
             data = torch.from_numpy(data)
             with torch.no_grad():
                 data = torch.diff(data, n=1, dim=-1)
