@@ -20,6 +20,25 @@ PhaseNet for Distributed Acoustic Sensing (DAS) data.
 
 - Example: [notebook](https://ai4eps.github.io/EQNet/phasenet_das)
 
+#### PhaseNet-DAS with HUJI filetype support
+
+This fork includes support for standardized HUJI Seismology DAS `hdf5` file. 
+
+```python
+with open("files.txt", "w") as f:
+    f.write(f"data/{filename.split('/')[-1]}")
+
+if ngpu == 0:
+    cmd = f"python {base_cmd} --device cpu --system huji"
+elif ngpu == 1:
+    cmd = f"python {base_cmd} --system huji"
+else:
+    cmd = f"torchrun --nproc_per_node {ngpu} {base_cmd} --system huji"
+
+print(cmd)
+os.system(cmd)
+```
+
 <!-- e.g.,
 ```
 python predict.py --model phasenet --add_polarity --add_event --format mseed --data_path /kuafu/jxli/Data/SeismicEventData/mammoth_south/data/ --data_list mammoth_south.txt --batch_size 1 --result_path mammoth_south 
