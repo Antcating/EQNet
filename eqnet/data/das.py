@@ -663,6 +663,7 @@ class DASIterableDataset(IterableDataset):
                                 attrs["dx_m"] = dx
                                 attrs["dt_s"] = 1.0 / fs
                         elif self.system == "huji":
+                            attrs = {}
                             nx, nt = meta["data_down"].shape
                             attrs["dt_s"] = 1 / meta.attrs["SPS_down"]
                             attrs["dx_m"] = meta.attrs["DX_down"]
