@@ -309,6 +309,13 @@ def main(args):
     if not os.path.exists(figure_path):
         utils.mkdir(figure_path)
 
+    if args.device == "cpu":
+        torch.set_num_threads(args.cpu_threads)
+        torch.set_num_interop_threads(1)
+
+        print(f"PyTorch intra-op threads: {torch.get_num_threads()}")
+        print(f"PyTorch inter-op threads: {torch.get_num_interop_threads()}")
+
     utils.init_distributed_mode(args)
     print(args)
 
@@ -472,6 +479,8 @@ def get_args_parser(add_help=True):
     parser.add_argument(
         "-b", "--batch_size", default=1, type=int, help="images per gpu, the total batch size is $NGPU x batch_size"
     )
+
+    parser.add_argument("--cpu_threads", default=8, type=int, help="Number of PyTorch CPU compute threads")
     # Mixed precision training parameters
     parser.add_argument(
         "--use_deterministic_algorithms", action="store_true", help="Forces the use of deterministic algorithms only."
